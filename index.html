@@ -72,7 +72,12 @@
   </div>
 
   <script>
-  const DATA_URL = "https://raw.githubusercontent.com/Karissa-Herns/bc-directory/main/GAL.csv";
+  // Try relative path first (works with GitHub Pages), fallback to raw GitHub URL
+  const DATA_URLS = [
+    "./GAL.csv",
+    "GAL.csv",
+    "https://raw.githubusercontent.com/Karissa-Herns/bc-directory/main/GAL.csv"
+  ];
   let allContacts = [];
   let filteredContacts = [];
 
@@ -186,19 +191,54 @@
 
   async function loadContacts(){
     const container = $('contactsContainer');
+    const debugDiv = $('debug');
     container.innerHTML = `<div class="state"><div class="spinner"></div>Loading contacts…</div>`;
-    try {
-      const res = await fetch(DATA_URL);
-      if(!res.ok) throw new Error("Could not fetch CSV file.");
-      const csvText = await res.text();
-      allContacts = parseCSV(csvText);
-      initializeFilters();
-      applyFilters();
-      localStorage.setItem("bcContactsLastUpdated", new Date().toLocaleString());
-      updateLastUpdatedDisplay();
-    } catch(e){
-      container.innerHTML = `<div class="state"><div style="color:#b00020;font-weight:700;margin-bottom:6px;">Could not load contacts</div><div class="last-updated">${escapeHtml(e.message)}</div></div>`;
+
+    let lastError = null;
+
+    // Try each URL until one works
+    for (let i = 0; i < DATA_URLS.length; i++) {
+      const url = DATA_URLS[i];
+      try {
+        debugDiv.textContent = `Trying to load from: ${url}`;
+        const res = await fetch(url);
+        if(!res.ok) {
+          lastError = new Error(`HTTP ${res.status}: ${res.statusText}`);
+          debugDiv.textContent = `Failed to load from ${url}: ${lastError.message}`;
+          continue;
+        }
+        const csvText = await res.text();
+        allContacts = parseCSV(csvText);
+
+        if (allContacts.length === 0) {
+          lastError = new Error("CSV file is empty or invalid");
+          debugDiv.textContent = `Loaded from ${url} but CSV is empty`;
+          continue;
+        }
+
+        // Success!
+        debugDiv.textContent = `Successfully loaded ${allContacts.length} contacts from: ${url}`;
+        initializeFilters();
+        applyFilters();
+        localStorage.setItem("bcContactsLastUpdated", new Date().toLocaleString());
+        updateLastUpdatedDisplay();
+        return;
+      } catch(e){
+        lastError = e;
+        debugDiv.textContent = `Error loading from ${url}: ${e.message}`;
+        // Continue to next URL
+      }
     }
+
+    // All URLs failed
+    container.innerHTML = `<div class="state">
+      <div style="color:#b00020;font-weight:700;margin-bottom:6px;">Could not load contacts</div>
+      <div class="last-updated">${escapeHtml(lastError?.message || "Unknown error")}</div>
+      <div class="last-updated" style="margin-top:12px;">To use this page:</div>
+      <div class="last-updated">1. Enable GitHub Pages in repository settings, OR</div>
+      <div class="last-updated">2. Serve this page using a local web server</div>
+    </div>`;
+    debugDiv.textContent = `All URLs failed. Last error: ${lastError?.message}`;
   }
 
   $('searchInput').addEventListener('input', applyFilters);
