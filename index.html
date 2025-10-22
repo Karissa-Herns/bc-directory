@@ -25,14 +25,19 @@
     .last-updated{font-size:12px;color:#999;font-style:italic}
     .debug{font-size:12px;color:#7b8a96;margin-top:8px;word-break:break-all}
 
+    .alphabet-filter{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:2px solid #f0f0f0}
+    .letter-btn{padding:6px 10px;border:2px solid #ddd;border-radius:6px;background:#fff;color:#2E4757;font-weight:600;cursor:pointer;transition:.15s;font-size:14px}
+    .letter-btn:hover{background:#f0f0f0;border-color:#2E4757}
+    .letter-btn.active{background:#2E4757;color:#fff;border-color:#2E4757}
+
     .contacts-card{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
-    .contacts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
-    .contact{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);border-left:4px solid #74B0D6;transition:.15s}
+    .contacts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+    .contact{background:#fff;padding:16px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.1);border-left:4px solid #74B0D6;transition:.15s}
     .contact:hover{transform:translateY(-3px);box-shadow:0 8px 16px rgba(0,0,0,.15);border-left-color:#2E4757}
-    .name{font-size:1.2em;font-weight:700;color:#1C2A33;margin-bottom:6px}
-    .title{font-size:.95em;color:#2E4757;font-weight:600;margin-bottom:10px}
-    .row{display:flex;gap:10px;margin-bottom:6px;font-size:.95em}
-    .label{min-width:86px;font-weight:600;color:#666}
+    .name{font-size:1.1em;font-weight:700;color:#1C2A33;margin-bottom:5px}
+    .title{font-size:.9em;color:#2E4757;font-weight:600;margin-bottom:8px}
+    .row{display:flex;gap:8px;margin-bottom:5px;font-size:.9em}
+    .label{min-width:75px;font-weight:600;color:#666}
     .value a{color:#2E4757;text-decoration:none}
     .value a:hover{text-decoration:underline;color:#74B0D6}
 
@@ -59,6 +64,7 @@
         <select id="departmentFilter"><option value="">All Departments</option></select>
         <select id="titleFilter"><option value="">All Job Titles</option></select>
       </div>
+      <div class="alphabet-filter" id="alphabetFilter"></div>
       <div class="stats">
         <div class="stat">Showing <strong id="displayCount">0</strong> of <strong id="totalCount">0</strong> contacts</div>
         <div id="lastUpdated" class="last-updated"></div>
@@ -80,6 +86,7 @@
   ];
   let allContacts = [];
   let filteredContacts = [];
+  let selectedLetter = "";
 
   const $ = id => document.getElementById(id);
   const escapeHtml = s => (s||"").toString()
@@ -141,6 +148,33 @@
     $('titleFilter').innerHTML =
       '<option value="">All Job Titles</option>' +
       titles.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
+
+    // Create alphabet filter
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    const alphabetHtml = alphabet.map(letter =>
+      `<button class="letter-btn" data-letter="${letter}" onclick="filterByLetter('${letter}')">${letter}</button>`
+    ).join('');
+    $('alphabetFilter').innerHTML = alphabetHtml;
+  }
+
+  function filterByLetter(letter) {
+    // Toggle letter selection
+    if (selectedLetter === letter) {
+      selectedLetter = "";
+    } else {
+      selectedLetter = letter;
+    }
+
+    // Update button states
+    document.querySelectorAll('.letter-btn').forEach(btn => {
+      if (btn.dataset.letter === selectedLetter) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    applyFilters();
   }
 
   function applyFilters(){
@@ -156,7 +190,12 @@
         (c.Department && c.Department.toLowerCase().includes(q));
       const matchesDept = !d || c.Department === d;
       const matchesTitle = !t || c.JobTitle === t;
-      return matchesSearch && matchesDept && matchesTitle;
+
+      // Filter by last name starting letter
+      const matchesLetter = !selectedLetter ||
+        (c.Name && c.Name.trim().split(' ').pop()[0].toUpperCase() === selectedLetter);
+
+      return matchesSearch && matchesDept && matchesTitle && matchesLetter;
     });
     renderContacts();
   }
@@ -166,6 +205,24 @@
     $('totalCount').textContent = allContacts.length;
     const container = $('contactsContainer');
     if(!allContacts.length) return;
+
+    // Check if any filter is active
+    const q = $('searchInput').value.toLowerCase();
+    const d = $('departmentFilter').value;
+    const t = $('titleFilter').value;
+    const hasActiveFilter = q || d || t || selectedLetter;
+
+    // If no filter is active, show instruction message
+    if (!hasActiveFilter) {
+      container.innerHTML = `<div class="state">
+        <strong>Welcome to the Brazosport College Directory</strong>
+        <div class="last-updated" style="margin-top:16px;">To view contacts, please:</div>
+        <div class="last-updated">• Type a search term above</div>
+        <div class="last-updated">• Select a department or job title</div>
+        <div class="last-updated">• Click a letter below to browse by last name</div>
+      </div>`;
+      return;
+    }
 
     if(!filteredContacts.length){
       container.innerHTML = `<div class="state"><strong>No contacts found</strong><div class="last-updated">Try adjusting your search or filters.</div></div>`;
@@ -224,7 +281,16 @@
         // Success!
         debugDiv.textContent = `Successfully loaded ${allContacts.length} contacts from: ${url}`;
         initializeFilters();
-        applyFilters();
+        // Show welcome message instead of all contacts
+        $('displayCount').textContent = '0';
+        $('totalCount').textContent = allContacts.length;
+        $('contactsContainer').innerHTML = `<div class="state">
+          <strong>Welcome to the Brazosport College Directory</strong>
+          <div class="last-updated" style="margin-top:16px;">To view contacts, please:</div>
+          <div class="last-updated">• Type a search term above</div>
+          <div class="last-updated">• Select a department or job title</div>
+          <div class="last-updated">• Click a letter below to browse by last name</div>
+        </div>`;
         localStorage.setItem("bcContactsLastUpdated", new Date().toLocaleString());
         updateLastUpdatedDisplay();
         return;
