@@ -31,13 +31,14 @@
     .letter-btn.active{background:#2E4757;color:#fff;border-color:#2E4757}
 
     .contacts-card{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
-    .contacts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+    .contacts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
     .contact{background:#fff;padding:16px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.1);border-left:4px solid #74B0D6;transition:.15s}
     .contact:hover{transform:translateY(-3px);box-shadow:0 8px 16px rgba(0,0,0,.15);border-left-color:#2E4757}
-    .name{font-size:1.1em;font-weight:700;color:#1C2A33;margin-bottom:5px}
-    .title{font-size:.9em;color:#2E4757;font-weight:600;margin-bottom:8px}
+    .name{font-size:1.1em;font-weight:700;color:#1C2A33;margin-bottom:5px;word-wrap:break-word}
+    .title{font-size:.9em;color:#2E4757;font-weight:600;margin-bottom:8px;word-wrap:break-word}
     .row{display:flex;gap:8px;margin-bottom:5px;font-size:.9em}
-    .label{min-width:75px;font-weight:600;color:#666}
+    .label{min-width:80px;font-weight:600;color:#666;flex-shrink:0}
+    .value{word-wrap:break-word;overflow-wrap:break-word}
     .value a{color:#2E4757;text-decoration:none}
     .value a:hover{text-decoration:underline;color:#74B0D6}
 
