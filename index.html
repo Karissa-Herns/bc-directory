@@ -71,200 +71,148 @@
     </div>
   </div>
 
-  <script>
-    // ====== CONFIG: List & field names (internal names) ======
-    const LIST_TITLE = "Directory";
-    // Known internal names from your list (JobTitle optional)
-    const FIELDS = {
-      Name: "Title",            // display name prefers Title
-      FirstName: "FirstName",   // fallback
-      LastName: "LastName",     // fallback
-      Alias: "Alias",           // fallback
-      Email: "Email",
-      JobTitle: "JobTitle",     // optional; OK if missing/blank
-      Department: "Department",
-      OfficeLocation: "OfficeLocation",
-      BusinessPhone: "BusinessPhone",
-      ManagerName: "ManagerName"
-    };
+  <script><script>
+const DATA_URL = "https://raw.githubusercontent.com/Karissa-Herns/bc-directory/refs/heads/main/GAL.csv";
 
-    // ====== State ======
-    let allContacts = [];
-    let filteredContacts = [];
+// ====== State ======
+let allContacts = [];
+let filteredContacts = [];
 
-    // ====== Elems ======
-    const $ = (id) => document.getElementById(id);
+// ====== Elems ======
+const $ = (id) => document.getElementById(id);
 
-    // ====== Helpers ======
-    function escapeHtml(s){return (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
-    function escapeAttr(s){return (s||"").toString().replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
-    function setDebug(msg){ $('debug').textContent = msg || ''; }
+// ====== Helpers ======
+function escapeHtml(s){return (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+function escapeAttr(s){return (s||"").toString().replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+function setDebug(msg){ $('debug').textContent = msg || ''; }
 
-    // Robustly extract array from any SharePoint JSON shape
-    function pickArray(json) {
-      if (!json) return [];
-      if (Array.isArray(json.value)) return json.value;             // odata=nometadata
-      if (json.d?.results && Array.isArray(json.d.results)) return json.d.results; // odata=verbose
-      if (Array.isArray(json.d)) return json.d;                     // rare
-      if (Array.isArray(json)) return json;                         // raw array
-      for (const k of Object.keys(json)) {                          // fallback: first array prop
-        if (Array.isArray(json[k])) return json[k];
-      }
-      return [];
-    }
+function updateLastUpdatedDisplay() {
+  const last = localStorage.getItem("bcContactsLastUpdated");
+  if (last) $('lastUpdated').textContent = `Last updated: ${last}`;
+}
 
-    async function fetchAllPages(firstUrl) {
-      let results = [];
-      let nextUrl = firstUrl;
-      while (nextUrl) {
-        const res = await fetch(nextUrl, {
-          headers: { Accept: "application/json;odata=nometadata" },
-          credentials: "include"
-        });
-        if (!res.ok) throw new Error(`SharePoint fetch failed: ${res.status} ${res.statusText}`);
-        const json = await res.json();
-        const page = pickArray(json);
-        results = results.concat(page);
-        nextUrl = json['@odata.nextLink'] || null; // present in nometadata
-        if (nextUrl) setDebug(`Loaded ${results.length} so far…`);
-      }
-      return results;
-    }
+function initializeFilters() {
+  const depts = [...new Set(allContacts.map(c => c.Department).filter(Boolean))].sort();
+  const titles = [...new Set(allContacts.map(c => c.JobTitle).filter(Boolean))].sort();
 
-    function updateLastUpdatedDisplay() {
-      const last = localStorage.getItem("bcContactsLastUpdated");
-      if (last) $('lastUpdated').textContent = `Last updated: ${last}`;
-    }
+  $('departmentFilter').innerHTML =
+    '<option value="">All Departments</option>' +
+    depts.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
 
-    function initializeFilters() {
-      const depts = [...new Set(allContacts.map(c => c.Department).filter(Boolean))].sort();
-      const titles = [...new Set(allContacts.map(c => c.JobTitle).filter(Boolean))].sort();
+  $('titleFilter').innerHTML =
+    '<option value="">All Job Titles</option>' +
+    titles.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
+}
 
-      $('departmentFilter').innerHTML =
-        '<option value="">All Departments</option>' +
-        depts.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
+function applyFilters() {
+  const q = $('searchInput').value.toLowerCase();
+  const d = $('departmentFilter').value;
+  const t = $('titleFilter').value;
 
-      $('titleFilter').innerHTML =
-        '<option value="">All Job Titles</option>' +
-        titles.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
-    }
+  filteredContacts = allContacts.filter(c => {
+    const matchesSearch = !q ||
+      (c.Name && c.Name.toLowerCase().includes(q)) ||
+      (c.Email && c.Email.toLowerCase().includes(q)) ||
+      (c.JobTitle && c.JobTitle.toLowerCase().includes(q)) ||
+      (c.Department && c.Department.toLowerCase().includes(q));
+    const matchesDept = !d || c.Department === d;
+    const matchesTitle = !t || c.JobTitle === t;
+    return matchesSearch && matchesDept && matchesTitle;
+  });
 
-    function applyFilters() {
-      const q = $('searchInput').value.toLowerCase();
-      const d = $('departmentFilter').value;
-      const t = $('titleFilter').value;
+  renderContacts();
+}
 
-      filteredContacts = allContacts.filter(c => {
-        const matchesSearch = !q ||
-          (c.Name && c.Name.toLowerCase().includes(q)) ||
-          (c.Email && c.Email.toLowerCase().includes(q)) ||
-          (c.JobTitle && c.JobTitle.toLowerCase().includes(q)) ||
-          (c.Department && c.Department.toLowerCase().includes(q));
-        const matchesDept = !d || c.Department === d;
-        const matchesTitle = !t || c.JobTitle === t;
-        return matchesSearch && matchesDept && matchesTitle;
-      });
+function renderContacts() {
+  $('displayCount').textContent = filteredContacts.length;
+  $('totalCount').textContent = allContacts.length;
 
-      renderContacts();
-    }
+  const container = $('contactsContainer');
+  if (!allContacts.length) return;
 
-    function renderContacts() {
-      $('displayCount').textContent = filteredContacts.length;
-      $('totalCount').textContent = allContacts.length;
+  if (!filteredContacts.length) {
+    container.innerHTML = `<div class="state"><strong>No contacts found</strong><div class="last-updated">Try adjusting your search or filters.</div></div>`;
+    return;
+  }
 
-      const container = $('contactsContainer');
-      if (!allContacts.length) return;
+  const cards = filteredContacts.map(c => `
+    <div class="contact">
+      <div class="name">${escapeHtml(c.Name || "No name")}</div>
+      ${c.JobTitle ? `<div class="title">${escapeHtml(c.JobTitle)}</div>` : ""}
+      <div>
+        ${c.Email ? `<div class="row"><div class="label">Email</div><div class="value"><a href="mailto:${escapeAttr(c.Email)}">${escapeHtml(c.Email)}</a></div></div>` : ""}
+        ${c.Department ? `<div class="row"><div class="label">Dept</div><div class="value">${escapeHtml(c.Department)}</div></div>` : ""}
+        ${c.OfficeLocation ? `<div class="row"><div class="label">Office</div><div class="value">${escapeHtml(c.OfficeLocation)}</div></div>` : ""}
+        ${c.BusinessPhone ? `<div class="row"><div class="label">Phone</div><div class="value"><a href="tel:${escapeAttr(c.BusinessPhone)}">${escapeHtml(c.BusinessPhone)}</a></div></div>` : ""}
+        ${c.ManagerName ? `<div class="row"><div class="label">Manager</div><div class="value">${escapeHtml(c.ManagerName)}</div></div>` : ""}
+      </div>
+    </div>
+  `).join('');
 
-      if (!filteredContacts.length) {
-        container.innerHTML = `<div class="state"><strong>No contacts found</strong><div class="last-updated">Try adjusting your search or filters.</div></div>`;
-        return;
-      }
+  container.innerHTML = `<div class="contacts-grid">${cards}</div>`;
+}
 
-      const cards = filteredContacts.map(c => `
-        <div class="contact">
-          <div class="name">${escapeHtml(c.Name || "No name")}</div>
-          ${c.JobTitle ? `<div class="title">${escapeHtml(c.JobTitle)}</div>` : ""}
-          <div>
-            ${c.Email ? `<div class="row"><div class="label">Email</div><div class="value"><a href="mailto:${escapeAttr(c.Email)}">${escapeHtml(c.Email)}</a></div></div>` : ""}
-            ${c.Department ? `<div class="row"><div class="label">Dept</div><div class="value">${escapeHtml(c.Department)}</div></div>` : ""}
-            ${c.OfficeLocation ? `<div class="row"><div class="label">Office</div><div class="value">${escapeHtml(c.OfficeLocation)}</div></div>` : ""}
-            ${c.BusinessPhone ? `<div class="row"><div class="label">Phone</div><div class="value"><a href="tel:${escapeAttr(c.BusinessPhone)}">${escapeHtml(c.BusinessPhone)}</a></div></div>` : ""}
-            ${c.ManagerName ? `<div class="row"><div class="label">Manager</div><div class="value">${escapeHtml(c.ManagerName)}</div></div>` : ""}
-          </div>
-        </div>
-      `).join('');
+function parseCSV(csvText) {
+  const lines = csvText.trim().split("\n");
+  const headers = lines[0].split(",").map(h => h.trim());
+  const contacts = [];
 
-      container.innerHTML = `<div class="contacts-grid">${cards}</div>`;
-    }
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i].split(",");
+    const obj = {};
+    headers.forEach((h, j) => obj[h] = (row[j] || "").trim());
+    contacts.push(obj);
+  }
 
-    async function loadContacts() {
-      const container = $('contactsContainer');
-      container.innerHTML = `<div class="state"><div class="spinner"></div>Loading contacts…</div>`;
-      setDebug("");
+  return contacts.map(c => ({
+    Name: `${c.FirstName || ""} ${c.LastName || ""}`.trim() || c.Name || c.Title || "",
+    Email: c.Email || "",
+    JobTitle: c.JobTitle || c.Title || "",
+    Department: c.Department || "",
+    OfficeLocation: c.OfficeLocation || "",
+    BusinessPhone: c.BusinessPhone || c.Phone || "",
+    ManagerName: c.ManagerName || ""
+  }));
+}
 
-      try {
-        const siteUrl = window._spPageContextInfo?.webAbsoluteUrl
-          || "https://brazosportcollege.sharepoint.com/sites/CIETeamHub";
+async function loadContacts() {
+  const container = $('contactsContainer');
+  container.innerHTML = `<div class="state"><div class="spinner"></div>Loading contacts…</div>`;
+  setDebug("");
 
-        // Build $select list (include fallbacks for name)
-        const select = new Set(["Id"]);
-        Object.values(FIELDS).forEach(v => v && select.add(v));
-        select.add(FIELDS.FirstName).add(FIELDS.LastName).add(FIELDS.Alias);
+  try {
+    const response = await fetch(DATA_URL);
+    if (!response.ok) throw new Error("Could not fetch CSV file.");
+    const csvText = await response.text();
 
-        const base = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(LIST_TITLE)}')/items`;
-        const apiUrl = `${base}?$select=${encodeURIComponent([...select].filter(Boolean).join(","))}`
-          + (FIELDS.Name ? `&$orderby=${encodeURIComponent(FIELDS.Name)} asc` : "")
-          + `&$top=5000`;
+    allContacts = parseCSV(csvText);
+    initializeFilters();
+    applyFilters();
 
-        setDebug(`GET ${apiUrl}`);
-        const items = await fetchAllPages(apiUrl);
+    localStorage.setItem("bcContactsLastUpdated", new Date().toLocaleString());
+    updateLastUpdatedDisplay();
 
-        // Map to UI model with robust full-name fallback chain
-        allContacts = items.map(it => {
-          const titleVal = FIELDS.Name ? (it[FIELDS.Name] || "") : "";
-          const fn = FIELDS.FirstName ? (it[FIELDS.FirstName] || "") : "";
-          const ln = FIELDS.LastName ? (it[FIELDS.LastName] || "") : "";
-          const alias = FIELDS.Alias ? (it[FIELDS.Alias] || "") : "";
-          const fullName = (titleVal || `${fn} ${ln}`.trim() || alias).trim();
+  } catch (e) {
+    container.innerHTML = `
+      <div class="state">
+        <div style="color:#b00020;font-weight:700;margin-bottom:6px;">Could not load contacts</div>
+        <div class="last-updated">${escapeHtml(e.message)}</div>
+      </div>`;
+  }
+}
 
-          return {
-            Name: fullName,
-            Email: FIELDS.Email ? (it[FIELDS.Email] || "") : "",
-            JobTitle: FIELDS.JobTitle ? (it[FIELDS.JobTitle] || "") : "",
-            Department: FIELDS.Department ? (it[FIELDS.Department] || "") : "",
-            OfficeLocation: FIELDS.OfficeLocation ? (it[FIELDS.OfficeLocation] || "") : "",
-            BusinessPhone: FIELDS.BusinessPhone ? (it[FIELDS.BusinessPhone] || "") : "",
-            ManagerName: FIELDS.ManagerName ? (it[FIELDS.ManagerName] || "") : ""
-          };
-        });
+// ====== Events ======
+$('searchInput').addEventListener('input', applyFilters);
+$('departmentFilter').addEventListener('change', applyFilters);
+$('titleFilter').addEventListener('change', applyFilters);
+$('refreshBtn').addEventListener('click', loadContacts);
 
-        localStorage.setItem("bcContactsLastUpdated", new Date().toLocaleString());
-        initializeFilters();
-        applyFilters();
-        updateLastUpdatedDisplay();
-
-      } catch (e) {
-        container.innerHTML = `
-          <div class="state">
-            <div style="color:#b00020;font-weight:700;margin-bottom:6px;">Could not load contacts</div>
-            <div class="last-updated">${escapeHtml(e.message)}</div>
-            <div class="last-updated">Check list title and internal names in the config at the top of the file.</div>
-          </div>`;
-        setDebug("");
-      }
-    }
-
-    // ====== Events ======
-    $('searchInput').addEventListener('input', applyFilters);
-    $('departmentFilter').addEventListener('change', applyFilters);
-    $('titleFilter').addEventListener('change', applyFilters);
-    $('refreshBtn').addEventListener('click', loadContacts);
-
-    // Boot
-    window.addEventListener('load', () => {
-      updateLastUpdatedDisplay();
-      loadContacts();
-    });
-  </script>
+// Boot
+window.addEventListener('load', () => {
+  updateLastUpdatedDisplay();
+  loadContacts();
+});
+</script>
 </body>
 </html>
+
