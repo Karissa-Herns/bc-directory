@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brazosport College Contact Directory</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#1C2A33 0%,#283D4A 100%);color:#3C3C3C;padding:20px;min-height:100vh}
+    .container{max-width:1400px;margin:0 auto}
+    .header{background:#fff;padding:30px;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);margin-bottom:30px;text-align:center}
+    .header h1{color:#1C2A33;font-size:2.2em;margin-bottom:8px}
+    .header p{color:#666}
+    .controls{background:#fff;padding:22px;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);margin-bottom:22px}
+    .search-box{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    .search-input{flex:1;min-width:240px;padding:12px;border:2px solid #ddd;border-radius:8px;font-size:16px}
+    .search-input:focus{outline:none;border-color:#2E4757}
+    .filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .filter-label{font-weight:600;color:#1C2A33}
+    select{padding:10px 12px;border:2px solid #ddd;border-radius:8px;background:#fff}
+    .btn{padding:10px 14px;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:.15s;background:#2E4757;color:#fff}
+    .btn:hover{background:#1C2A33;transform:translateY(-1px)}
+    .stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:2px solid #f0f0f0;align-items:center}
+    .stat{font-size:14px;color:#666}.stat strong{color:#1C2A33;font-size:18px}
+    .last-updated{font-size:12px;color:#999;font-style:italic}
+    .debug{font-size:12px;color:#7b8a96;margin-top:8px;word-break:break-all}
+
+    .contacts-card{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+    .contacts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
+    .contact{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);border-left:4px solid #74B0D6;transition:.15s}
+    .contact:hover{transform:translateY(-3px);box-shadow:0 8px 16px rgba(0,0,0,.15);border-left-color:#2E4757}
+    .name{font-size:1.2em;font-weight:700;color:#1C2A33;margin-bottom:6px}
+    .title{font-size:.95em;color:#2E4757;font-weight:600;margin-bottom:10px}
+    .row{display:flex;gap:10px;margin-bottom:6px;font-size:.95em}
+    .label{min-width:86px;font-weight:600;color:#666}
+    .value a{color:#2E4757;text-decoration:none}
+    .value a:hover{text-decoration:underline;color:#74B0D6}
+
+    .state{text-align:center;padding:50px 20px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+    .spinner{border:4px solid #f3f3f3;border-top:4px solid #2E4757;border-radius:50%;width:44px;height:44px;animation:spin 1s linear infinite;margin:0 auto 12px}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    @media (max-width:768px){.contacts-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🐊 Brazosport College Contact Directory</h1>
+      <p>Live directory pulled from your SharePoint list</p>
+    </div>
+
+    <div class="controls">
+      <div class="search-box">
+        <input id="searchInput" class="search-input" placeholder="Search by name, email, title, or department..." />
+        <button id="refreshBtn" class="btn">Refresh Data</button>
+      </div>
+      <div class="filter-row">
+        <span class="filter-label">Filter by:</span>
+        <select id="departmentFilter"><option value="">All Departments</option></select>
+        <select id="titleFilter"><option value="">All Job Titles</option></select>
+      </div>
+      <div class="stats">
+        <div class="stat">Showing <strong id="displayCount">0</strong> of <strong id="totalCount">0</strong></div>
+        <div id="lastUpdated" class="last-updated"></div>
+      </div>
+      <div id="debug" class="debug"></div>
+    </div>
+
+    <div id="contactsContainer" class="contacts-card">
+      <div class="state"><div class="spinner"></div>Loading…</div>
+    </div>
+  </div>
+
+  <script>
+    // ====== CONFIG: List & field names (internal names) ======
+    const LIST_TITLE = "Directory";
+    // Known internal names from your list (JobTitle optional)
+    const FIELDS = {
+      Name: "Title",            // display name prefers Title
+      FirstName: "FirstName",   // fallback
+      LastName: "LastName",     // fallback
+      Alias: "Alias",           // fallback
+      Email: "Email",
+      JobTitle: "JobTitle",     // optional; OK if missing/blank
+      Department: "Department",
+      OfficeLocation: "OfficeLocation",
+      BusinessPhone: "BusinessPhone",
+      ManagerName: "ManagerName"
+    };
+
+    // ====== State ======
+    let allContacts = [];
+    let filteredContacts = [];
+
+    // ====== Elems ======
+    const $ = (id) => document.getElementById(id);
+
+    // ====== Helpers ======
+    function escapeHtml(s){return (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+    function escapeAttr(s){return (s||"").toString().replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+    function setDebug(msg){ $('debug').textContent = msg || ''; }
+
+    // Robustly extract array from any SharePoint JSON shape
+    function pickArray(json) {
+      if (!json) return [];
+      if (Array.isArray(json.value)) return json.value;             // odata=nometadata
+      if (json.d?.results && Array.isArray(json.d.results)) return json.d.results; // odata=verbose
+      if (Array.isArray(json.d)) return json.d;                     // rare
+      if (Array.isArray(json)) return json;                         // raw array
+      for (const k of Object.keys(json)) {                          // fallback: first array prop
+        if (Array.isArray(json[k])) return json[k];
+      }
+      return [];
+    }
+
+    async function fetchAllPages(firstUrl) {
+      let results = [];
+      let nextUrl = firstUrl;
+      while (nextUrl) {
+        const res = await fetch(nextUrl, {
+          headers: { Accept: "application/json;odata=nometadata" },
+          credentials: "include"
+        });
+        if (!res.ok) throw new Error(`SharePoint fetch failed: ${res.status} ${res.statusText}`);
+        const json = await res.json();
+        const page = pickArray(json);
+        results = results.concat(page);
+        nextUrl = json['@odata.nextLink'] || null; // present in nometadata
+        if (nextUrl) setDebug(`Loaded ${results.length} so far…`);
+      }
+      return results;
+    }
+
+    function updateLastUpdatedDisplay() {
+      const last = localStorage.getItem("bcContactsLastUpdated");
+      if (last) $('lastUpdated').textContent = `Last updated: ${last}`;
+    }
+
+    function initializeFilters() {
+      const depts = [...new Set(allContacts.map(c => c.Department).filter(Boolean))].sort();
+      const titles = [...new Set(allContacts.map(c => c.JobTitle).filter(Boolean))].sort();
+
+      $('departmentFilter').innerHTML =
+        '<option value="">All Departments</option>' +
+        depts.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
+
+      $('titleFilter').innerHTML =
+        '<option value="">All Job Titles</option>' +
+        titles.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
+    }
+
+    function applyFilters() {
+      const q = $('searchInput').value.toLowerCase();
+      const d = $('departmentFilter').value;
+      const t = $('titleFilter').value;
+
+      filteredContacts = allContacts.filter(c => {
+        const matchesSearch = !q ||
+          (c.Name && c.Name.toLowerCase().includes(q)) ||
+          (c.Email && c.Email.toLowerCase().includes(q)) ||
+          (c.JobTitle && c.JobTitle.toLowerCase().includes(q)) ||
+          (c.Department && c.Department.toLowerCase().includes(q));
+        const matchesDept = !d || c.Department === d;
+        const matchesTitle = !t || c.JobTitle === t;
+        return matchesSearch && matchesDept && matchesTitle;
+      });
+
+      renderContacts();
+    }
+
+    function renderContacts() {
+      $('displayCount').textContent = filteredContacts.length;
+      $('totalCount').textContent = allContacts.length;
+
+      const container = $('contactsContainer');
+      if (!allContacts.length) return;
+
+      if (!filteredContacts.length) {
+        container.innerHTML = `<div class="state"><strong>No contacts found</strong><div class="last-updated">Try adjusting your search or filters.</div></div>`;
+        return;
+      }
+
+      const cards = filteredContacts.map(c => `
+        <div class="contact">
+          <div class="name">${escapeHtml(c.Name || "No name")}</div>
+          ${c.JobTitle ? `<div class="title">${escapeHtml(c.JobTitle)}</div>` : ""}
+          <div>
+            ${c.Email ? `<div class="row"><div class="label">Email</div><div class="value"><a href="mailto:${escapeAttr(c.Email)}">${escapeHtml(c.Email)}</a></div></div>` : ""}
+            ${c.Department ? `<div class="row"><div class="label">Dept</div><div class="value">${escapeHtml(c.Department)}</div></div>` : ""}
+            ${c.OfficeLocation ? `<div class="row"><div class="label">Office</div><div class="value">${escapeHtml(c.OfficeLocation)}</div></div>` : ""}
+            ${c.BusinessPhone ? `<div class="row"><div class="label">Phone</div><div class="value"><a href="tel:${escapeAttr(c.BusinessPhone)}">${escapeHtml(c.BusinessPhone)}</a></div></div>` : ""}
+            ${c.ManagerName ? `<div class="row"><div class="label">Manager</div><div class="value">${escapeHtml(c.ManagerName)}</div></div>` : ""}
+          </div>
+        </div>
+      `).join('');
+
+      container.innerHTML = `<div class="contacts-grid">${cards}</div>`;
+    }
+
+    async function loadContacts() {
+      const container = $('contactsContainer');
+      container.innerHTML = `<div class="state"><div class="spinner"></div>Loading contacts…</div>`;
+      setDebug("");
+
+      try {
+        const siteUrl = window._spPageContextInfo?.webAbsoluteUrl
+          || "https://brazosportcollege.sharepoint.com/sites/CIETeamHub";
+
+        // Build $select list (include fallbacks for name)
+        const select = new Set(["Id"]);
+        Object.values(FIELDS).forEach(v => v && select.add(v));
+        select.add(FIELDS.FirstName).add(FIELDS.LastName).add(FIELDS.Alias);
+
+        const base = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(LIST_TITLE)}')/items`;
+        const apiUrl = `${base}?$select=${encodeURIComponent([...select].filter(Boolean).join(","))}`
+          + (FIELDS.Name ? `&$orderby=${encodeURIComponent(FIELDS.Name)} asc` : "")
+          + `&$top=5000`;
+
+        setDebug(`GET ${apiUrl}`);
+        const items = await fetchAllPages(apiUrl);
+
+        // Map to UI model with robust full-name fallback chain
+        allContacts = items.map(it => {
+          const titleVal = FIELDS.Name ? (it[FIELDS.Name] || "") : "";
+          const fn = FIELDS.FirstName ? (it[FIELDS.FirstName] || "") : "";
+          const ln = FIELDS.LastName ? (it[FIELDS.LastName] || "") : "";
+          const alias = FIELDS.Alias ? (it[FIELDS.Alias] || "") : "";
+          const fullName = (titleVal || `${fn} ${ln}`.trim() || alias).trim();
+
+          return {
+            Name: fullName,
+            Email: FIELDS.Email ? (it[FIELDS.Email] || "") : "",
+            JobTitle: FIELDS.JobTitle ? (it[FIELDS.JobTitle] || "") : "",
+            Department: FIELDS.Department ? (it[FIELDS.Department] || "") : "",
+            OfficeLocation: FIELDS.OfficeLocation ? (it[FIELDS.OfficeLocation] || "") : "",
+            BusinessPhone: FIELDS.BusinessPhone ? (it[FIELDS.BusinessPhone] || "") : "",
+            ManagerName: FIELDS.ManagerName ? (it[FIELDS.ManagerName] || "") : ""
+          };
+        });
+
+        localStorage.setItem("bcContactsLastUpdated", new Date().toLocaleString());
+        initializeFilters();
+        applyFilters();
+        updateLastUpdatedDisplay();
+
+      } catch (e) {
+        container.innerHTML = `
+          <div class="state">
+            <div style="color:#b00020;font-weight:700;margin-bottom:6px;">Could not load contacts</div>
+            <div class="last-updated">${escapeHtml(e.message)}</div>
+            <div class="last-updated">Check list title and internal names in the config at the top of the file.</div>
+          </div>`;
+        setDebug("");
+      }
+    }
+
+    // ====== Events ======
+    $('searchInput').addEventListener('input', applyFilters);
+    $('departmentFilter').addEventListener('change', applyFilters);
+    $('titleFilter').addEventListener('change', applyFilters);
+    $('refreshBtn').addEventListener('click', loadContacts);
+
+    // Boot
+    window.addEventListener('load', () => {
+      updateLastUpdatedDisplay();
+      loadContacts();
+    });
+  </script>
+</body>
+</html>
