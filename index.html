@@ -27,8 +27,15 @@
 
     .contacts-card{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
     .contacts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
-    .contact{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);border-left:4px solid #74B0D6;transition:.15s}
+    .contact{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);border-left:4px solid #74B0D6;transition:.15s;position:relative}
     .contact:hover{transform:translateY(-3px);box-shadow:0 8px 16px rgba(0,0,0,.15);border-left-color:#2E4757}
+    .contact-header{cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:start;gap:10px}
+    .contact-info{flex:1}
+    .collapse-btn{background:none;border:none;color:#74B0D6;font-size:1.3em;cursor:pointer;padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:.2s;flex-shrink:0}
+    .collapse-btn:hover{background:#f0f0f0;color:#2E4757}
+    .collapse-btn.collapsed{transform:rotate(-90deg)}
+    .contact-details{overflow:hidden;transition:max-height 0.3s ease-out, opacity 0.3s ease-out, margin-top 0.3s ease-out;max-height:500px;opacity:1;margin-top:10px}
+    .contact-details.collapsed{max-height:0;opacity:0;margin-top:0}
     .name{font-size:1.2em;font-weight:700;color:#1C2A33;margin-bottom:6px}
     .title{font-size:.95em;color:#2E4757;font-weight:600;margin-bottom:10px}
     .row{display:flex;gap:10px;margin-bottom:6px;font-size:.95em}
@@ -53,6 +60,7 @@
       <div class="search-box">
         <input id="searchInput" class="search-input" placeholder="Search by name, email, title, or department..." />
         <button id="refreshBtn" class="btn">Refresh Data</button>
+        <button id="collapseAllBtn" class="btn">Collapse All</button>
       </div>
       <div class="filter-row">
         <span class="filter-label">Filter by:</span>
@@ -172,11 +180,16 @@
       return;
     }
 
-    const cards = filteredContacts.map(c => `
+    const cards = filteredContacts.map((c, idx) => `
       <div class="contact">
-        <div class="name">${escapeHtml(c.Name || "No name")}</div>
-        ${c.JobTitle ? `<div class="title">${escapeHtml(c.JobTitle)}</div>` : ""}
-        <div>
+        <div class="contact-header" onclick="toggleContact(${idx})">
+          <div class="contact-info">
+            <div class="name">${escapeHtml(c.Name || "No name")}</div>
+            ${c.JobTitle ? `<div class="title">${escapeHtml(c.JobTitle)}</div>` : ""}
+          </div>
+          <button class="collapse-btn" id="btn-${idx}" aria-label="Toggle details">▼</button>
+        </div>
+        <div class="contact-details" id="details-${idx}">
           ${c.Email ? `<div class="row"><div class="label">Email</div><div class="value"><a href="mailto:${escapeAttr(c.Email)}">${escapeHtml(c.Email)}</a></div></div>` : ""}
           ${c.Department ? `<div class="row"><div class="label">Dept</div><div class="value">${escapeHtml(c.Department)}</div></div>` : ""}
           ${c.OfficeLocation ? `<div class="row"><div class="label">Office</div><div class="value">${escapeHtml(c.OfficeLocation)}</div></div>` : ""}
@@ -187,6 +200,13 @@
       </div>`).join('');
 
     container.innerHTML = `<div class="contacts-grid">${cards}</div>`;
+  }
+
+  function toggleContact(idx) {
+    const details = document.getElementById(`details-${idx}`);
+    const btn = document.getElementById(`btn-${idx}`);
+    details.classList.toggle('collapsed');
+    btn.classList.toggle('collapsed');
   }
 
   async function loadContacts(){
@@ -241,10 +261,33 @@
     debugDiv.textContent = `All URLs failed. Last error: ${lastError?.message}`;
   }
 
+  let allCollapsed = false;
+
+  function toggleAllContacts() {
+    allCollapsed = !allCollapsed;
+    const btn = $('collapseAllBtn');
+    btn.textContent = allCollapsed ? 'Expand All' : 'Collapse All';
+
+    filteredContacts.forEach((_, idx) => {
+      const details = document.getElementById(`details-${idx}`);
+      const collapseBtn = document.getElementById(`btn-${idx}`);
+      if (details && collapseBtn) {
+        if (allCollapsed) {
+          details.classList.add('collapsed');
+          collapseBtn.classList.add('collapsed');
+        } else {
+          details.classList.remove('collapsed');
+          collapseBtn.classList.remove('collapsed');
+        }
+      }
+    });
+  }
+
   $('searchInput').addEventListener('input', applyFilters);
   $('departmentFilter').addEventListener('change', applyFilters);
   $('titleFilter').addEventListener('change', applyFilters);
   $('refreshBtn').addEventListener('click', loadContacts);
+  $('collapseAllBtn').addEventListener('click', toggleAllContacts);
 
   window.addEventListener('load', ()=>{
     updateLastUpdatedDisplay();
