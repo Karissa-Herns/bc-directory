@@ -80,11 +80,16 @@
 
   <script>
   // Try relative path first (works with GitHub Pages), fallback to raw GitHub URL
-  const DATA_URLS = [
-    "./GAL.csv",
-    "GAL.csv",
-    "https://raw.githubusercontent.com/Karissa-Herns/bc-directory/main/GAL.csv"
-  ];
+  function getDataUrls() {
+    // Add timestamp to bust cache
+    const timestamp = new Date().getTime();
+    return [
+      `./GAL.csv?v=${timestamp}`,
+      `GAL.csv?v=${timestamp}`,
+      `https://raw.githubusercontent.com/Karissa-Herns/bc-directory/main/GAL.csv?v=${timestamp}`
+    ];
+  }
+
   let allContacts = [];
   let filteredContacts = [];
   let selectedLetter = "";
@@ -258,6 +263,7 @@
     container.innerHTML = `<div class="state"><div class="spinner"></div>Loading contacts…</div>`;
 
     let lastError = null;
+    const DATA_URLS = getDataUrls(); // Get fresh URLs with cache-busting timestamp
 
     // Try each URL until one works
     for (let i = 0; i < DATA_URLS.length; i++) {
