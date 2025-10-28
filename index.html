@@ -59,6 +59,7 @@
       <div class="search-box">
         <input id="searchInput" class="search-input" placeholder="Search by name, email, title, or department..." />
         <button id="refreshBtn" class="btn">Refresh Data</button>
+        <button id="downloadBtn" class="btn">Download CSV</button>
       </div>
       <div class="filter-row">
         <span class="filter-label">Filter by:</span>
@@ -319,10 +320,76 @@
     debugDiv.textContent = `All URLs failed. Last error: ${lastError?.message}`;
   }
 
+  function downloadCSV() {
+    // Use filtered contacts if any filters are active, otherwise use all contacts
+    const q = $('searchInput').value.toLowerCase();
+    const d = $('departmentFilter').value;
+    const t = $('titleFilter').value;
+    const hasActiveFilter = q || d || t || selectedLetter;
+
+    const contactsToExport = hasActiveFilter && filteredContacts.length > 0 ? filteredContacts : allContacts;
+
+    if (contactsToExport.length === 0) {
+      alert('No contacts to download. Please load data first or apply filters.');
+      return;
+    }
+
+    // Create CSV header
+    const headers = ['FirstName', 'LastName', 'Email', 'JobTitle', 'Department', 'OfficeLocation', 'BusinessPhone', 'ManagerName', 'Alias'];
+    let csvContent = headers.join(',') + '\n';
+
+    // Add each contact as a row
+    contactsToExport.forEach(contact => {
+      const nameParts = contact.Name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const row = [
+        escapeCSVField(firstName),
+        escapeCSVField(lastName),
+        escapeCSVField(contact.Email),
+        escapeCSVField(contact.JobTitle),
+        escapeCSVField(contact.Department),
+        escapeCSVField(contact.OfficeLocation),
+        escapeCSVField(contact.BusinessPhone),
+        escapeCSVField(contact.ManagerName),
+        escapeCSVField(contact.Alias)
+      ];
+      csvContent += row.join(',') + '\n';
+    });
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    const filename = hasActiveFilter
+      ? `bc-directory-filtered-${new Date().toISOString().split('T')[0]}.csv`
+      : `bc-directory-all-${new Date().toISOString().split('T')[0]}.csv`;
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function escapeCSVField(field) {
+    if (field == null) return '';
+    const str = field.toString();
+    // If field contains comma, quote, or newline, wrap in quotes and escape quotes
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
   $('searchInput').addEventListener('input', applyFilters);
   $('departmentFilter').addEventListener('change', applyFilters);
   $('titleFilter').addEventListener('change', applyFilters);
   $('refreshBtn').addEventListener('click', loadContacts);
+  $('downloadBtn').addEventListener('click', downloadCSV);
 
   window.addEventListener('load', ()=>{
     updateLastUpdatedDisplay();
