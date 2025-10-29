@@ -6,12 +6,11 @@
   <title>Brazosport College Contact Directory</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#1C2A33 0%,#283D4A 100%);color:#3C3C3C;padding:20px;min-height:100vh}
-    .container{max-width:1400px;margin:0 auto}
-    .header{background:#fff;padding:30px;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);margin-bottom:30px;text-align:center}
-    .header h1{color:#1C2A33;font-size:2.2em;margin-bottom:8px}
-    .header p{color:#666}
-    .controls{background:#fff;padding:22px;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);margin-bottom:22px}
+    body{font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#1C2A33 0%,#283D4A 100%);color:#3C3C3C;padding:20px;min-height:100vh;overflow:hidden}
+    .container{max-width:1400px;margin:0 auto;height:calc(100vh - 40px);display:flex;flex-direction:column}
+    .header{background:#fff;padding:30px;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);margin-bottom:20px;text-align:center;flex-shrink:0}
+    .header h1{color:#1C2A33;font-size:2.2em;margin-bottom:0}
+    .controls{background:#fff;padding:22px;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.1);margin-bottom:20px;flex-shrink:0}
     .search-box{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
     .search-input{flex:1;min-width:240px;padding:12px;border:2px solid #ddd;border-radius:8px;font-size:16px}
     .search-input:focus{outline:none;border-color:#2E4757}
@@ -30,7 +29,7 @@
     .letter-btn:hover{background:#f0f0f0;border-color:#2E4757}
     .letter-btn.active{background:#2E4757;color:#fff;border-color:#2E4757}
 
-    .contacts-card{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+    .contacts-card{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);flex:1;overflow-y:auto;min-height:0}
     .contacts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
     .contact{background:#fff;padding:16px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.1);border-left:4px solid #74B0D6;transition:.15s}
     .contact:hover{transform:translateY(-3px);box-shadow:0 8px 16px rgba(0,0,0,.15);border-left-color:#2E4757}
@@ -52,7 +51,6 @@
   <div class="container">
     <div class="header">
       <h1>🐊 Brazosport College Contact Directory</h1>
-      <p>Directory loaded from GAL.csv on GitHub</p>
     </div>
 
     <div class="controls">
