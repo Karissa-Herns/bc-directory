@@ -141,8 +141,7 @@
       Department: c.Department || "",
       OfficeLocation: c.OfficeLocation || "",
       BusinessPhone: c.BusinessPhone || "",
-      ManagerName: c.ManagerName || "",
-      Alias: c.Alias || ""
+      ManagerName: c.ManagerName || ""
     }));
   }
 
@@ -250,7 +249,6 @@
           ${c.OfficeLocation ? `<div class="row"><div class="label">Office</div><div class="value">${escapeHtml(c.OfficeLocation)}</div></div>` : ""}
           ${hasValidPhone ? `<div class="row"><div class="label">Phone</div><div class="value"><a href="tel:${escapeAttr(c.BusinessPhone)}">${escapeHtml(c.BusinessPhone)}</a></div></div>` : ""}
           ${c.ManagerName ? `<div class="row"><div class="label">Manager</div><div class="value">${escapeHtml(c.ManagerName)}</div></div>` : ""}
-          ${c.Alias ? `<div class="row"><div class="label">Alias</div><div class="value">${escapeHtml(c.Alias)}</div></div>` : ""}
         </div>
       </div>`;
     }).join('');
@@ -335,7 +333,7 @@
     }
 
     // Create CSV header
-    const headers = ['FirstName', 'LastName', 'Email', 'JobTitle', 'Department', 'OfficeLocation', 'BusinessPhone', 'ManagerName', 'Alias'];
+    const headers = ['FirstName', 'LastName', 'Email', 'JobTitle', 'Department', 'OfficeLocation', 'BusinessPhone', 'ManagerName'];
     let csvContent = headers.join(',') + '\n';
 
     // Add each contact as a row
@@ -352,8 +350,7 @@
         escapeCSVField(contact.Department),
         escapeCSVField(contact.OfficeLocation),
         escapeCSVField(contact.BusinessPhone),
-        escapeCSVField(contact.ManagerName),
-        escapeCSVField(contact.Alias)
+        escapeCSVField(contact.ManagerName)
       ];
       csvContent += row.join(',') + '\n';
     });
